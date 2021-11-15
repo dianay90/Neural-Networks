@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from IPython.display import clear_output
 
 class DeepNeuralNetwork():
-    def __init__(self, sizes, epochs=110, l_rate=0.001):
+    def __init__(self, sizes, epochs=110, l_rate=0.003):
         self.sizes = sizes
         self.epochs = epochs
         self.l_rate = l_rate
@@ -76,17 +76,7 @@ class DeepNeuralNetwork():
         return predictions
 
     def backward_pass(self, y_train, output):
-        '''
-            This is the backpropagation algorithm, for calculating the updates
-            of the neural network's parameters.
-
-            Note: There is a stability issue that causes warnings. This is 
-                  caused  by the dot and multiply operations on the huge arrays.
-                  
-                  RuntimeWarning: invalid value encountered in true_divide
-                  RuntimeWarning: overflow encountered in exp
-                  RuntimeWarning: overflow encountered in square
-        '''
+       
         params = self.params
         change_w = {}
 
@@ -121,7 +111,7 @@ class DeepNeuralNetwork():
 
     def compute_accuracy(self, x_val, y_val):
         '''
-            This function does a forward pass of x, then checks if the indices
+            forward pass of x, check if the indices
             of the maximum value in the output equals the indices in the label
             y. Then it sums over each prediction and calculates the accuracy.
         '''
@@ -164,7 +154,7 @@ class DeepNeuralNetwork():
 
 
 
-def load_dataset(flatten=False):
+def load_dataset():
     import pandas as pd
     Xtest=pd.read_csv("/home/dianayoh/homework3/homework3_ai/test_image.csv",header=None)
     ytest=pd.read_csv("/home/dianayoh/homework3/homework3_ai/test_label.csv",header=None)
@@ -179,10 +169,6 @@ def load_dataset(flatten=False):
     y_train=np.array(ytrain[0])
     y_test=np.array(ytest[0])
   
-
-
-
-    
     arrtr= np.random.randint(0,60000,10000)   #randomly select the 10000 images from training.csv
     arrte= np.random.randint(0,60000,10000)   #randomly select the 10000 images from training.csv
      
@@ -191,13 +177,13 @@ def load_dataset(flatten=False):
 
     X_val = X_train
     y_val = y_train
-    if flatten:
-        X_train = X_train.reshape([X_train.shape[0], -1])
-        X_val = X_val.reshape([X_val.shape[0], -1])
-        X_test = X_test.reshape([X_test.shape[0], -1])
+ 
+    X_train = X_train.reshape([X_train.shape[0], -1])
+    X_val = X_val.reshape([X_val.shape[0], -1])
+    X_test = X_test.reshape([X_test.shape[0], -1])
     return X_train, y_train, X_val, y_val, X_test, y_test
     
-X_train, y_train, X_val, y_val, X_test, y_test = load_dataset(flatten=True)
+X_train, y_train, X_val, y_val, X_test, y_test = load_dataset()
 
 
 
@@ -228,7 +214,6 @@ for i in y_test:
 y_train = np.array(y_train_temp)
 y_val = np.array(y_val_temp)
 y_test = np.array(y_test_temp)
-
 
 
 dnn = DeepNeuralNetwork(sizes=[784, 128, 64, 10])
