@@ -135,13 +135,15 @@ class DNN():
             predictions.append(np.argmax(output))
         
         return predictions
-    def predict2(self, x_val):
 
+    def predict2(self, xvalues):
+        #Check this
         predictions = list()
 
-        for x in x_val:
-            output = self.forward_pass(x)
-            predictions.append(np.argmax(output))
+        for x in xvalues:
+            output = self.forward_propagation(x)
+            max_output = np.argmax(output)
+            predictions.append(max_output)
         
         return predictions
 
@@ -186,13 +188,18 @@ class DNN():
         error =  self.sigmoid_with_derivative(parameter_values['Z1']) * parameter_values['W2'].T.dot(error)
         updated_weights['W1'] = np.matrix(error).T.dot(np.matrix(parameter_values['A0']))
 
-        return updated_weights
+        self.update_network_parameters(updated_weights)
 
     def update_network_parameters(self, changes_to_w):
  
-        
         for key, value in changes_to_w.items():
             self.params[key] -= self.l_rate * value
+
+    def update_params2(self, changes_to_w):
+ 
+        for i, j in changes_to_w.items():
+            self.params[i] = self.params[i] - (self.l_rate * j)
+
 
     def compute_accuracy(self, x_val, y_val):
 
@@ -205,16 +212,17 @@ class DNN():
         
         return np.mean(predictions)
 
-    def compute_accuracy2(self, x_val, y_val):
+    def detect_accuracy(self, xvalue, yvalue):
 
-        predictions = list()
+        predicts_list = list()
 
-        for x, y in zip(x_val, y_val):
-            output = self.forward_pass(x)
-            pred = np.argmax(output)
-            predictions.append(pred == np.argmax(y))
+        for x, y in zip(xvalue, yvalue):
+            output_prediction = np.argmax(self.forward_propagation(x))
+
+            if output_prediction == np.argmax(y):
+                predicts_list.append(output_prediction)
         
-        return np.mean(predictions)
+        return np.mean(predicts_list)
 
     def train(self, x_train, y_train, x_val, y_val):
 
@@ -245,19 +253,19 @@ class DNN():
             ))
 
 
-    def train2(self, x_train, y_train, x_val, y_val):
+    def networking_training2(self, x_training_data, y_training_data, x_value, y_value):
 
-        train_log,val_log = [], []
-        start_time = time.time()
-        for iteration in range(self.epochs):
-            for x,y in zip(x_train, y_train):
-                output = self.forward_pass(x)
-                update_output = (output- y)/output.shape[0]
-                changes_to_w = self.backward_pass(update_output)
-                self.update_network_parameters(changes_to_w)
+        train_log,val_log = list(), list()
+        init_time = time.time()
+
+        for epoch_iteration in range(self.epochs):
+            for x,y in zip(x_training_data, y_training_data):
+                forward_output = self.forward_propagation(x)
+                update_output = (forward_output- y)/forward_output.shape[0]
+                self.backward_propogation(update_output)
             
-            train_log.append(self.compute_accuracy(x_train, y_train))
-            val_log.append(self.compute_accuracy(x_val, y_val))
+            train_log.append(self.detect_accuracy(x_training_data, y_training_data))
+            val_log.append(self.detect_accuracy(x_value, y_value))
     
             clear_output()
             print("Train accuracy:",train_log[-1])
@@ -268,15 +276,17 @@ class DNN():
             plt.grid()
             plt.show()
 
+            accuracy = self.detect_accuracy(x_value, y_value)
 
-            accuracy = self.compute_accuracy(x_val, y_val)
-            print('Epoch: {0}, Time Spent: {1:.2f}s, Accuracy: {2:.2f}%'.format(
-                iteration+1, time.time() - start_time, accuracy * 100
-            ))
+            update_epoch_iteration = epoch_iteration + 1 
+            new_time = time.time() - init_time 
+            update_accuracy = accuracy * 100 
+            print("Epoch: " + str(update_epoch_iteration) + 
+            "Time: " + str(new_time) + 
+            "Accuracy: " +str(update_accuracy))
 
 
 def load_dataset():
-    import pandas as pd
     Xtest=pd.read_csv("/home/dianayoh/homework3/homework3_ai/test_image.csv",header=None)
     ytest=pd.read_csv("/home/dianayoh/homework3/homework3_ai/test_label.csv",header=None)
     Xtrain=pd.read_csv("/home/dianayoh/homework3/homework3_ai/train_image.csv",header=None)
