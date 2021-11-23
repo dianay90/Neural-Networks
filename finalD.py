@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-# coding: utf-8
 
-import numpy as np ## For numerical python
+import numpy as np 
 import pandas as pd
 import time
 import os
-from tqdm import trange
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
+import csv 
 
 
 class DNN():
+    '''
     def __init__(self, sizes, epochs=110, l_rate=0.003):
         self.sizes = sizes
         self.epochs = epochs
@@ -19,9 +19,10 @@ class DNN():
         # we save all parameters in the neural network in this dictionary
         self.params = self.initialization()
         print('')
+    '''
 
 
-    def __init__2(self,  epochs,l_rate):
+    def __init__(self, epochs,l_rate):
         self.epochs = epochs
         self.l_rate = l_rate
 
@@ -42,11 +43,17 @@ class DNN():
     def sigmoid2(self, x):
     
         return 1/(1 + np.exp(-x))
-    
+
+    def sigmoid_with_derivative2(self, x):
+        sigmoid  = self.sigmoid2(x)
+        df = sigmoid * (1 - sigmoid)
+        return df
+          
+    '''
     def sigmoid_with_derivative(self, x):
     
         return (np.exp(-x))/((np.exp(-x)+1)**2)
-    
+    '''
 
     def softmax(self, x, derivative=False):
         # Numerically stable with large exponentials
@@ -56,14 +63,11 @@ class DNN():
         return exps / np.sum(exps, axis=0)
 
     def softmax2(self, x):
-
-        #the x is an array and you subtract x.max from each item in the array 
-        exps = np.exp(x - x.max())     
-        return exps / np.sum(exps, axis=0)        
+        #Cite: https://stackoverflow.com/questions/34968722/how-to-implement-the-softmax-function-in-python/38250088
+        return np.exp(x - x.max())  / np.sum(np.exp(x - x.max()) , axis=0)        
 
     def softmax_with_derivative2(self,x):
-        exps = np.exp(x - x.max())
-        return exps / np.sum(exps, axis=0) * (1 - exps / np.sum(exps, axis=0))
+        return np.exp(x - x.max())  / np.sum(np.exp(x - x.max()) , axis=0) * (1 - np.exp(x - x.max())  / np.sum(np.exp(x - x.max()) , axis=0))
 
     def initialization(self):
         # number of nodes in each layer
@@ -136,7 +140,7 @@ class DNN():
         
         return predictions
 
-    def predict2(self, xvalues):
+    def make_predictions(self, xvalues):
         #Check this
         predictions = list()
 
@@ -170,29 +174,25 @@ class DNN():
         #np.matrix(error).T.dot(np.matrix(params['A2']))
         return product
 
-    def backward_propogation(self, updated_output):
+    def backward_propogation_update_weights(self, updated_output):
      # test this 
         parameter_values = self.params
-        updated_weights = list()
+        updated_weights = dict()
 
         error = self.softmax_with_derivative2(parameter_values['Z3']) * updated_output * 2
         updated_weights['W3'] = np.matrix(error).T.dot(np.matrix(parameter_values['A2']))
 
 
         # Calculate W2 update
-        error =  self.sigmoid_with_derivative(parameter_values['Z2']) *parameter_values['W3'].T.dot(error) 
+        error =  self.sigmoid_with_derivative2(parameter_values['Z2']) *parameter_values['W3'].T.dot(error) 
         updated_weights['W2'] = np.matrix(error).T.dot(np.matrix(parameter_values['A1']))
 
 
         # Calculate W1 update
-        error =  self.sigmoid_with_derivative(parameter_values['Z1']) * parameter_values['W2'].T.dot(error)
+        error =  self.sigmoid_with_derivative2(parameter_values['Z1']) * parameter_values['W2'].T.dot(error)
         updated_weights['W1'] = np.matrix(error).T.dot(np.matrix(parameter_values['A0']))
-
-        self.update_network_parameters(updated_weights)
-
-    def update_network_parameters(self, changes_to_w):
  
-        for key, value in changes_to_w.items():
+        for key, value in updated_weights.items():
             self.params[key] -= self.l_rate * value
 
     def update_params2(self, changes_to_w):
@@ -200,6 +200,10 @@ class DNN():
         for i, j in changes_to_w.items():
             self.params[i] = self.params[i] - (self.l_rate * j)
 
+    def update_network_parameters(self, changes_to_w):
+    
+        for key, value in changes_to_w.items():
+            self.params[key] -= self.l_rate * value
 
     def compute_accuracy(self, x_val, y_val):
 
@@ -217,10 +221,13 @@ class DNN():
         predicts_list = list()
 
         for x, y in zip(xvalue, yvalue):
+
             output_prediction = np.argmax(self.forward_propagation(x))
 
             if output_prediction == np.argmax(y):
-                predicts_list.append(output_prediction)
+                predicts_list.append(True)
+            else: 
+                predicts_list.append(False)
         
         return np.mean(predicts_list)
 
@@ -253,19 +260,24 @@ class DNN():
             ))
 
 
-    def networking_training2(self, x_training_data, y_training_data, x_value, y_value):
+    def train_network(self, x_training_data, y_training_data, x_value, y_value):
 
         train_log,val_log = list(), list()
         init_time = time.time()
 
         for epoch_iteration in range(self.epochs):
             for x,y in zip(x_training_data, y_training_data):
+                #forward_output = self.forward_pass(x)
+
                 forward_output = self.forward_propagation(x)
                 update_output = (forward_output- y)/forward_output.shape[0]
-                self.backward_propogation(update_output)
+                self.backward_propogation_update_weights(update_output)
+                #changes_to_w = self.backward_pass(y, forward_output)
+                #self.update_network_parameters(changes_to_w)
             
             train_log.append(self.detect_accuracy(x_training_data, y_training_data))
             val_log.append(self.detect_accuracy(x_value, y_value))
+          
     
             clear_output()
             print("Train accuracy:",train_log[-1])
@@ -275,16 +287,31 @@ class DNN():
             plt.legend(loc='best')
             plt.grid()
             plt.show()
-
+            
             accuracy = self.detect_accuracy(x_value, y_value)
 
             update_epoch_iteration = epoch_iteration + 1 
             new_time = time.time() - init_time 
+            new_time = str(round(new_time, 2))
             update_accuracy = accuracy * 100 
-            print("Epoch: " + str(update_epoch_iteration) + 
-            "Time: " + str(new_time) + 
-            "Accuracy: " +str(update_accuracy))
 
+            
+            print("Epoch: " + str(update_epoch_iteration) +
+            "Time: " + str(new_time) + 
+            "Accuracy: " +str(update_accuracy) +'%')
+           
+            
+    def write_predictions(self, pred):
+        currentDirectory = os.getcwd()
+        fullPath = os.path.join(currentDirectory,"test_predictions.csv")
+        
+        if not os.path.exists(fullPath):
+
+            with open(fullPath, 'w') as csvfile:
+                csvwriter = csv.writer(csvfile, delimiter = '\n')
+                csvwriter.writerows(pred)
+
+            
 
 def load_dataset():
     Xtest=pd.read_csv("/home/dianayoh/homework3/homework3_ai/test_image.csv",header=None)
@@ -313,17 +340,57 @@ def load_dataset():
     X_val = X_val.reshape([X_val.shape[0], -1])
     X_test = X_test.reshape([X_test.shape[0], -1])
     return X_train, y_train, X_val, y_val, X_test, y_test
+
+
+
+def get_data():
+    Xtest=pd.read_csv("/home/dianayoh/homework3/homework3_ai/test_image.csv",header=None)
+    ytest=pd.read_csv("/home/dianayoh/homework3/homework3_ai/test_label.csv",header=None)
+    Xtrain=pd.read_csv("/home/dianayoh/homework3/homework3_ai/train_image.csv",header=None)
+    ytrain=pd.read_csv("/home/dianayoh/homework3/homework3_ai/train_label.csv",header=None)
+
+    #Reshape to 28x28
+    X_train=np.array(Xtrain)[:].reshape((-1, 28, 28))
+    X_test=np.array(Xtest)[:].reshape((-1, 28, 28))
+
+    #Divide by 255
+    X_test = (X_test/255).astype('float32')
+    X_train = (X_train/255).astype('float32')
     
+    #Grab labels
+    y_train=np.array(ytrain[0])
+    y_test=np.array(ytest[0])
+  
+    '''
+    random_v1= np.random.randint(0,60000,10000)   #randomly select the 10000 images from training.csv
+    random_v2= np.random.randint(0,60000,10000)   #randomly select the 10000 images from training.csv
+    
+    X_train, X_val = X_train[random_v1], X_train[random_v2]
+    y_train, y_val = y_train[random_v1], y_train[random_v2]
+    '''
+    rand=np.arange(60000)
+    np.random.shuffle(rand)
+
+    #train_no=rand[:50000]
+    first_10K = rand [0:10000]
+    second_10K = rand[10000:20000]
+
+    X_train, X_val = X_train[first_10K], X_train[second_10K]
+    y_train, y_val= y_train[first_10K], y_train[second_10K]
+ 
+    X_train = X_train.reshape([X_train.shape[0], -1])
+    X_val = X_val.reshape([X_val.shape[0], -1])
+    X_test = X_test.reshape([X_test.shape[0], -1])
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
+ 
 X_train, y_train, X_val, y_val, X_test, y_test = load_dataset()
-
-
 
 y_train = list(y_train)
 y_val = list(y_val)
 y_test = list(y_test)
 
-
-y_train_temp, y_val_temp, y_test_temp =  [], [], []
+y_train_temp, y_val_temp, y_test_temp =  list(), list(), list()
 
 for i in y_train:
   li = [0]*10
@@ -347,19 +414,19 @@ y_val = np.array(y_val_temp)
 y_test = np.array(y_test_temp)
 
 
-dnn = DNN(sizes=[784, 128, 64, 10])
-'''
+#dnn = DNN(sizes=[784, 128, 64, 10])
+
 
 epoch = 110
 l_rate = .003
-dnn2 = DNN(epoch,l_rate)
-'''
-dnn.train(X_train, y_train, X_val, y_val)
+dnn = DNN(epoch,l_rate)
+
+dnn.train_network(X_train, y_train, X_val, y_val)
 
 
 pred = dnn.predict(X_test)
-dataframe=pd.DataFrame(pd.Series(pred))
-dataframe.to_csv(os.getcwd() + "test_predictions.csv", index=False)
+dnn.write_predictions(pred)
+
 
 
 
