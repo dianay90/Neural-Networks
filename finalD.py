@@ -156,7 +156,6 @@ class NeuralNetwork():
         error = self.softmax_with_derivative2(parameter_values['Z3']) * updated_output * 2
         updated_weights['W3'] = np.matrix(error).T.dot(np.matrix(parameter_values['A2']))
 
-
         # Calculate W2 update
         error =  self.sigmoid_with_derivative2(parameter_values['Z2']) *parameter_values['W3'].T.dot(error) 
         updated_weights['W2'] = np.matrix(error).T.dot(np.matrix(parameter_values['A1']))
@@ -272,7 +271,7 @@ class NeuralNetwork():
             print("Epoch: " + str(update_epoch_iteration) + "\n"
             "Time: " + str(new_time) + "\n"
             "Accuracy: " +str(update_accuracy) +'%'+ "\n"
-            "Loss: "  + str(loss))
+            "Loss: "  + str(loss) + "\n")
 
             
     def write_predictions(self, pred):
@@ -349,6 +348,17 @@ def get_data():
 
     return X_train, y_train, X_val, y_val, X_test, y_test
 
+def one_hot(y_training): 
+    temp_y_list = list()
+    # return numpy array of one hot 
+    for i in y_training: 
+        list_item = [0]*10
+        list_item[i] = 1
+        temp_y_list.append(list_item)
+    return np.array(temp_y_list)
+
+
+
 if __name__ == "__main__":
  
     X_train, y_train, X_val, y_val, X_test, y_test = get_data()
@@ -356,7 +366,7 @@ if __name__ == "__main__":
     y_train = list(y_train)
     y_val = list(y_val)
     y_test = list(y_test)
-
+    '''
     y_train_temp, y_val_temp, y_test_temp =  list(), list(), list()
 
     for i in y_train:
@@ -374,13 +384,17 @@ if __name__ == "__main__":
         li = [0]*10
         li[i] = 1
         y_test_temp.append(li)
+    '''
+    y_train = one_hot(y_train)
+    y_val = one_hot(y_val)
+    y_test = one_hot(y_test)
 
 
-    y_train = np.array(y_train_temp)
-    y_val = np.array(y_val_temp)
-    y_test = np.array(y_test_temp)
+    #y_train = np.array(y_train_temp)
+    #y_val = np.array(y_val_temp)
+    #y_test = np.array(y_test_temp)
 
-    epoch = 110
+    epoch = 110 #110
     l_rate = .003
     dnn = NeuralNetwork(epoch,l_rate)
 
