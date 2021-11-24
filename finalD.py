@@ -220,8 +220,10 @@ if __name__ == "__main__":
     y_val = one_hot(y_val)
     y_test = one_hot(y_test)
 
-    epoch = 110 #110
-    l_rate = .003
+    #epoch = 110 #110
+    #l_rate = .003
+    epoch = 82
+    l_rate = .1
     
     dnn = NeuralNetwork(epoch,l_rate)
 
