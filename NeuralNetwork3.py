@@ -1,178 +1,248 @@
+
+import numpy as np 
+import pandas as pd
+import time
+import os
+from IPython.display import clear_output
+import csv 
+import sys
+
+
+class NeuralNetwork():
+
+    def __init__(self, epochs,l_rate):
+        self.epochs = epochs
+        self.l_rate = l_rate
+
+        self.parameters = {
+       
+            'W1':np.random.randn(128, 784) * .08,
+            'W2':np.random.randn(64, 128) *.12,
+            'W3':np.random.randn(10, 64) *.31
+        }
+
     
-import numpy as np
-import math
-import pandas as pd 
-from matplotlib import pyplot as plt 
-
-
-class NeuralNetwork:
-    def __init__(self):
-        print('te')
-
-    def read_images(self,filename):
-        with open(filename) as file: 
-            #Separate into sets of 184 
-            data= file.read()
-        
-        dataList = list() 
-        dataList = data
-        return dataList
-    def splitInto784(self, data):
-        
-        n = 784
-        line = data
-        finalList =  [line[i:i+n] for i in range(0, len(line), n)]
-        return finalList
-        
-        '''
-        line = '1234567890'
-        n = 2
-        list2 = [line[i:i+n] for i in range(0, len(line), n)]
-        print("")
-        '''
-
-    def read_labels(self,filename): 
-        labelsList = list()
-        with open(filename, 'r') as file: 
-            lines = file.readlines()
-            for item in lines: 
-                item = item.rstrip('\n')
-                labelsList.append(item)
-        return labelsList
-    #ReFACTOR
-    def init(self,x,y):
-        layer=np.random.uniform(-1.,1.,size=(x,y))/np.sqrt(x*y)
-        return layer.astype(np.float32)
-
-    '''
-    #forward and backward pass
-    def forward_backward_pass(x,y):
-        targets = np.zeros((len(y),10), np.float32)
-        targets[range(targets.shape[0]),y] = 1
+    def sigmoid2(self, x):
     
-        
-        x_l1=x.dot(l1)
-        x_sigmoid=sigmoid(x_l1)
-        x_l2=x_sigmoid.dot(l2)
-        out=softmax(x_l2)
+        return 1/(1 + np.exp(-x))
+
+    def sigmoid_with_derivative2(self, x):
+        sigmoid  = self.sigmoid2(x)
+        df = sigmoid * (1 - sigmoid)
+        return df
+          
     
-    
-        error=2*(out-targets)/out.shape[0]*d_softmax(x_l2)
-        update_l2=x_sigmoid.T@error
+    def softmax2(self, x):
+        #Cite: https://stackoverflow.com/questions/34968722/how-to-implement-the-softmax-function-in-python/38250088
+        return np.exp(x - x.max())  / np.sum(np.exp(x - x.max()) , axis=0)        
+
+    def softmax_with_derivative2(self,x):
+        return np.exp(x - x.max())  / np.sum(np.exp(x - x.max()) , axis=0) * (1 - np.exp(x - x.max())  / np.sum(np.exp(x - x.max()) , axis=0))
+
+  
+    def forward_matrix_multiply(self, variableI, variableII):
+        finalParam = variableI.dot(variableII)
+        return finalParam 
         
+    def forward_propagation(self, x_array):
+        #for loop or major function call out
+        parameter_values = self.parameters
+
+        # multiple weights by prevoius layer activation, then apply act function
+        parameter_values['A0'] = x_array
+
+        # matrix multipliy input to first hidden layer, then apply activation function
+        parameter_values['Z1'] = self.forward_matrix_multiply(parameter_values['W1'], parameter_values['A0'])
+        parameter_values['A1'] = self.sigmoid2(parameter_values['Z1'])
+
+        # matrix multiply input to first hidden layer, then apply activation function
+
+        parameter_values['Z2'] = self.forward_matrix_multiply(parameter_values['W2'], parameter_values['A1'])
+        parameter_values['A2'] = self.sigmoid2(parameter_values['Z2'])
+
+        # matrix multiple hidden layer two to output layer, then apply softmax since it's the last year
+        parameter_values['Z3'] = self.forward_matrix_multiply(parameter_values['W3'], parameter_values['A2'])
+        parameter_values['A3'] = self.softmax2(parameter_values['Z3'])
+
+        return parameter_values['A3']
+   
+    def make_predictions(self, x_values):
+        predictions = list()
+
+        for x in x_values:
+            output = self.forward_propagation(x)
+            max_output = np.argmax(output)
+            predictions.append(max_output)
         
-        error=((l2).dot(error.T)).T*d_sigmoid(x_l1)
-        update_l1=x.T@error
-
-        return out,update_l1,update_l2 
-
-    '''
-    #CITE
-    '''
-    def __init__(self, x, y):
-        self.input      = x
-        self.weights1   = np.random.rand(self.input.shape[1],4) 
-        self.weights2   = np.random.rand(4,1)                 
-        self.y          = y
-        self.output     = np.zeros(self.y.shape)
+        return predictions
     
+    def product_of_vectors(self, error, param): 
+        product = np.matrix(error).T.dot(np.matrix(param))
+        #np.matrix(error).T.dot(np.matrix(params['A2']))
+        return product
 
-    def feedforward(self):
-        self.layer1 = sigmoid(np.dot(self.input, self.weights1))
-        self.output = sigmoid(np.dot(self.layer1, self.weights2))
+    def backward_propogation_update_weights(self, updated_output):
+        parameter_values = self.parameters
+        updated_weights = dict()
 
-    def backprop(self):
-        # application of the chain rule to find derivative of the loss function with respect to weights2 and weights1
-        d_weights2 = np.dot(self.layer1.T, (2*(self.y - self.output) * sigmoid_derivative(self.output)))
-        d_weights1 = np.dot(self.input.T,  (np.dot(2*(self.y - self.output) * sigmoid_derivative(self.output), self.weights2.T) * sigmoid_derivative(self.layer1)))
+        error = self.softmax_with_derivative2(parameter_values['Z3']) * updated_output * 2
+        updated_weights['W3'] = np.matrix(error).T.dot(np.matrix(parameter_values['A2']))
 
-        # update the weights with the derivative (slope) of the loss function
-        self.weights1 += d_weights1
-        self.weights2 += d_weights2
-    '''
-    #CITE
-    #Sigmoid funstion
-    def sigmoid(self,x):
-        return 1/(np.exp(-x)+1)    
+        # Calculate W2 update
+        error =  self.sigmoid_with_derivative2(parameter_values['Z2']) *parameter_values['W3'].T.dot(error) 
+        updated_weights['W2'] = np.matrix(error).T.dot(np.matrix(parameter_values['A1']))
 
-    #derivative of sigmoid
-    def d_sigmoid(self,x):
-        return (np.exp(-x))/((np.exp(-x)+1)**2)
-
-    def softmax(self,x):
-        exp_element=np.exp(x-x.max())
-        return exp_element/np.sum(exp_element,axis=0)
-
-    #derivative of softmax
-    def d_softmax(self,x):
-        exp_element=np.exp(x-x.max())
-        return exp_element/np.sum(exp_element,axis=0)*(1-exp_element/np.sum(exp_element,axis=0))
-    #forward and backward pass
-    def forward_backward_pass(self,x,y):
-        targets = np.zeros((len(y),10), np.float32)
-        targets[range(targets.shape[0]),y] = 1
-    
+        # Calculate W1 update
+        error =  self.sigmoid_with_derivative2(parameter_values['Z1']) * parameter_values['W2'].T.dot(error)
+        updated_weights['W1'] = np.matrix(error).T.dot(np.matrix(parameter_values['A0']))
         
-        x_l1=x.dot(l1)
-        x_sigmoid=self.sigmoid(x_l1)
-        x_l2=x_sigmoid.dot(l2)
-        out=self.softmax(x_l2)
-    
-    
-        error=2*(out-targets)/out.shape[0]*self.d_softmax(x_l2)
-        update_l2=x_sigmoid.T@error
+        # Update weights 
+        self.parameters['W3'] = self.parameters['W3'] - self.l_rate * updated_weights['W3']
+        self.parameters['W3'] =  np.squeeze(np.asarray( self.parameters['W3']))
+       
+        self.parameters['W2'] = self.parameters['W2'] - self.l_rate * updated_weights['W2']
+        self.parameters['W2'] =  np.squeeze(np.asarray( self.parameters['W2']))
         
-        
-        error=((l2).dot(error.T)).T*self.d_sigmoid(x_l1)
-        update_l1=x.T@error
+        self.parameters['W1'] = self.parameters['W1'] - self.l_rate * updated_weights['W1']
+        self.parameters['W1'] =  np.squeeze(np.asarray( self.parameters['W1']))
 
-        return out,update_l1,update_l2 
+        
+
+    def detect_accuracy(self, xvalue, yvalue):
+
+        predicts_list = list()
+
+        for x, y in zip(xvalue, yvalue):
+
+            output_prediction = np.argmax(self.forward_propagation(x))
+
+            if output_prediction == np.argmax(y):
+                predicts_list.append(True)
+            else: 
+                predicts_list.append(False)
+        
+        return np.mean(predicts_list)
+  
+
+    def cross_entropy_loss(self, predictions, training_labels): 
+        return np.mean(training_labels * np.log(predictions.T))
+
+    def train_network(self, x_training_data, y_training_data, x_value, y_value):
+
+        init_time = time.time()
+
+        for epoch_iteration in range(self.epochs):
+            for x,y in zip(x_training_data, y_training_data):
+                forward_output = self.forward_propagation(x)
+                loss= self.cross_entropy_loss(forward_output,y)
+                update_output = (forward_output- y)/forward_output.shape[0]
+                self.backward_propogation_update_weights(update_output)
+
+            #After each round, see if accuracy has improved
+            accuracy = self.detect_accuracy(x_value, y_value)
+
+            update_epoch_iteration = epoch_iteration + 1 
+            new_time = time.time() - init_time 
+            new_time = str(round(new_time, 2))
+            update_accuracy = accuracy * 100 
+            update_accuracy = str(round(update_accuracy, 2))
+            loss = str(round(loss,2))
+
+            print("Epoch: " + str(update_epoch_iteration) + "\n"
+            "Time: " + str(new_time) + "\n"
+            "Accuracy: " +str(update_accuracy) +'%'+ "\n"
+            "Loss: "  + str(loss) + "\n")
+
+            
+    def write_predictions(self, pred):
+        currentDirectory = os.getcwd()
+        fullPath = os.path.join(currentDirectory,"test_predictions.csv")
+        
+        if not os.path.exists(fullPath):
+
+            with open(fullPath, 'w') as csvfile:
+                csvwriter = csv.writer(csvfile, delimiter = '\n')
+                csvwriter.writerow(pred)
+
+def read_in_contents():
+    # train image, train label, test image
+    Xtrain = pd.read_csv(sys.argv[1],header=None)
+    ytrain = pd.read_csv(sys.argv[2],header=None)
+    Xtest = pd.read_csv(sys.argv[3],header=None)
+    return Xtrain, ytrain, Xtest
+
+def get_data():
+  
+    Xtrain, ytrain, Xtest = read_in_contents()
+
+    #Reshape to 28x28
+    X_train=np.array(Xtrain)[:].reshape((-1, 28, 28))
+    X_test=np.array(Xtest)[:].reshape((-1, 28, 28))
+
+    #Divide by 255
+    X_test = (X_test/255).astype('float32')
+    X_train = (X_train/255).astype('float32')
+    
+    #Grab labels
+    y_train=np.array(ytrain[0])
+  
+    #rand=np.arange(10000)
+    rand=np.arange(len(X_train))
+    np.random.shuffle(rand)
+
+    #train_no=rand[:50000]
+    first_10K = rand [0:len(X_train)]
+    #first_10K = rand [0:10000]
+
+    rand2=np.arange(len(X_train))
+    np.random.shuffle(rand2)
+    second_10K = rand2[0:len(X_train)]
+    #second_10K = rand2 [0:10000]
+
+
+    X_train, X_val = X_train[first_10K], X_train[second_10K]
+    y_train, y_val= y_train[first_10K], y_train[second_10K]
+ 
+    X_train = X_train.reshape([X_train.shape[0], -1])
+    X_val = X_val.reshape([X_val.shape[0], -1])
+    X_test = X_test.reshape([X_test.shape[0], -1])
+
+    return X_train, y_train, X_val, y_val, X_test
+
+def one_hot(y_training): 
+    temp_y_list = list()
+    # return numpy array of one hot 
+    for i in y_training: 
+        list_item = [0]*10
+        list_item[i] = 1
+        temp_y_list.append(list_item)
+    return np.array(temp_y_list)
+
 
 
 if __name__ == "__main__":
-        network = NeuralNetwork()
-        testImages = network.read_images("/home/dianayoh/homework3/homework3_ai/test_image.csv")
+ 
+    X_train, y_train, X_val, y_val, X_test = get_data()
 
-        List784Test  = network.splitInto784(testImages)
-        testLabels = network.read_labels("/home/dianayoh/homework3/homework3_ai/test_label.csv")
+    y_train = list(y_train)
+    y_val = list(y_val)
+    #y_test = list(y_test)
+   
+    y_train = one_hot(y_train)
+    y_val = one_hot(y_val)
+    #y_test = one_hot(y_test)
 
-        trainImages= network.read_images("/home/dianayoh/homework3/homework3_ai/train_image.csv")
+    epoch = 82
+    l_rate = .1
+    
+    dnn = NeuralNetwork(epoch,l_rate)
 
-        List784Train = network.splitInto784(trainImages)
-        trainLabels = network.read_labels("/home/dianayoh/homework3/homework3_ai/train_label.csv")
-        '''
-        np.random.seed(42)
-        l1=network.init(28*28,128)
-        l2=network.init(128,10)
+    dnn.train_network(X_train, y_train, X_val, y_val)
 
-        epochs=10000
-        lr=0.001
-        batch=128
+    pred = dnn.make_predictions(X_test)
+    dnn.write_predictions(pred)
 
-        losses,accuracies,val_accuracies=[],[],[]
 
-        for i in range(epochs):
-            sample=np.random.randint(0,List784Train.shape[0],size=(batch))
-            x=List784Test[sample].reshape((-1,28*28))
-            y=List784Test[sample]
-        
 
-            out,update_l1,update_l2=network.forward_backward_pass(x,y)
-        
-            category=np.argmax(out,axis=1)
-            accuracy=(category==y).mean()
-            accuracies.append(accuracy)
-            
-            loss=((category-y)**2).mean() #test
-            losses.append(loss.item())
-            
-            l1=l1-lr*update_l1
-            l2=l2-lr*update_l2
-            
-            if(i%20==0):    
-                X_val=X_val.reshape((-1,28*28))
-                val_out=np.argmax(network.softmax(network.sigmoid(X_val.dot(l1)).dot(l2)),axis=1)
-                val_acc=(val_out==testLabels).mean()
-                val_accuracies.append(val_acc.item())
-            if(i%500==0): print(f'For {i}th epoch: train accuracy: {accuracy:.3f} | validation accuracy:{val_acc:.3f}')
-        '''
+
+
